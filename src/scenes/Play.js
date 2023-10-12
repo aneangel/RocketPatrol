@@ -46,31 +46,98 @@ class Play extends Phaser.Scene {
         keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         keyLEFT = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
         keyRIGHT = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+
+        this.anims.create({
+            key: 'explode',
+            frames: this.anims.generateFrameNumbers('explosion', {
+                start: 0, end: 9, first: 0
+            }),
+            frameRate: 30
+        });
+
+        this.p1Score = 0;
+
+        let scoreConfig = {
+            fontFamily: 'Courier',
+            fontSize: '28px',
+            backgroundColor: '#F3B141',
+            color: '#843605',
+            align: 'right',
+            padding: {
+                top: 5,
+                bottom: 5,
+            },
+            fixedWidth: 100
+        }
+
+        this.scoreLeft = this.add.text(borderUISize + borderPadding, borderUISize + borderPadding * 2,
+            this.p1Score, scoreConfig);
+
+        this.gameOver = false;
+
+        scoreConfig.fixedWidth = 0;
+        this.clock = this.time.delayedCall(game.settings.gameTimer, () => {
+            this.add.text(game.config.width/2, game.config.height/2, 'GAME OVER', scoreConfig).setOrigin(0.5);
+            this.add.text(game.config.width/2, game.config.height/2 + 64, 'Press (R) to Restart or <- to Menu', scoreConfig).setOrigin(0.5);
+            this.gameOver = true;
+        }, null, this);
     }
 
     update() {
+        if (this.gameOver && Phaser.Input.Keyboard.JustDown(keyR)) {
+            this.scene.restart();
+        }
+
+        if (this.gameOver && Phaser.Input.Keyboard.JustDown(keyLEFT)) {
+            this.scene.start("menuScene");
+        }
+
         this.starfield.titlePositionX -= 4;
 
-        this.p1Rocket.update();
-        //update spaceships
-        this.ship01.update();
-        this.ship02.update();
-        this.ship03.update();
+        if (!this.gameOver) {
+            this.p1Rocket.update();
+            //update spaceships
+            this.ship01.update();
+            this.ship02.update();
+            this.ship03.update();
+        }
 
         //check collisions
         if (this.checkCollision(this.p1Rocket, this.ship03)) {
             this.p1Rocket.reset();
-            this.ship03.reset();
+            this.shipExplode(this.ship03);
         }
         if (this.checkCollision(this.p1Rocket, this.ship02)) {
             this.p1Rocket.reset();
-            this.ship02.reset();
+            this.shipExplode(this.ship02);
         }
         if (this.checkCollision(this.p1Rocket, this.ship01)) {
             this.p1Rocket.reset();
-            this.ship01.reset();
+            this.shipExplode(this.ship01);
         }
+    }
 
+    checkCollision(rocket, ship) {
+        return rocket.x < ship.x + ship.width &&
+            rocket.x + rocket.width > ship.x &&
+            rocket.y < ship.y + ship.height &&
+            rocket.height + rocket.y > ship.y;
+    }
 
+    shipExplode(ship) {
+        ship.alpha = 0;
+
+        let boom = this.add.sprite(ship.x, ship.y, 'explosion').setOrigin(0, 0);
+        boom.anims.play('explode');
+        boom.on('animationComplete', () => {
+            ship.reset();
+            ship.alpha = 1;
+            boom.destroy();
+        });
+
+        this.p1Score += ship.points;
+        this.scoreLeft.text = this.p1Score;
+
+        this.sound.play('sfx_explosion');
     }
 }
